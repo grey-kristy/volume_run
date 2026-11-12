@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Training Volume Tracker</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f5f5f5;
+      color: #1a1a1a;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    h1 { font-size: 1.1rem; font-weight: 600; }
+
+    .sync-btn {
+      background: #2563eb;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 7px 16px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .sync-btn:hover { background: #1d4ed8; }
+    .sync-btn:disabled { background: #93c5fd; cursor: not-allowed; }
+
+    .filters {
+      display: flex;
+      gap: 8px;
+      padding: 20px 24px 0;
+    }
+
+    .filter-btn {
+      border: 1.5px solid #d1d5db;
+      background: #fff;
+      border-radius: 20px;
+      padding: 6px 18px;
+      font-size: 0.875rem;
+      cursor: pointer;
+      transition: all 0.15s;
+      color: #374151;
+    }
+    .filter-btn:hover { border-color: #2563eb; color: #2563eb; }
+    .filter-btn.active {
+      background: #2563eb;
+      border-color: #2563eb;
+      color: #fff;
+    }
+
+    .container { padding: 20px 24px; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #fff;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+    }
+
+    th {
+      text-align: left;
+      padding: 12px 16px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #6b7280;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    td {
+      padding: 12px 16px;
+      font-size: 0.9rem;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #f9fafb; }
+
+    td:nth-child(2), td:nth-child(3) { font-variant-numeric: tabular-nums; }
+
+    .status {
+      padding: 12px 24px;
+      font-size: 0.8rem;
+      color: #6b7280;
+      min-height: 36px;
+    }
+    .status.error { color: #dc2626; }
+
+    .empty {
+      text-align: center;
+      padding: 48px 16px;
+      color: #9ca3af;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Training Volume Tracker</h1>
+  <button class="sync-btn" id="syncBtn" onclick="sync()">Sync</button>
+</header>
+
+<div class="filters">
+  <button class="filter-btn active" id="btn-all"     onclick="load('all')">All</button>
+  <button class="filter-btn"        id="btn-running" onclick="load('running')">Running</button>
+  <button class="filter-btn"        id="btn-cycling" onclick="load('cycling')">Biking</button>
+</div>
+
+<div class="status" id="status"></div>
+
+<div class="container">
+  <table>
+    <thead>
+      <tr>
+        <th>Week</th>
+        <th>Distance</th>
+        <th>Duration</th>
+      </tr>
+    </thead>
+    <tbody id="rows">
+      <tr><td colspan="3" class="empty">No data — click Sync to load activities.</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<script>
+  let current = 'all';
+
+  function fmtDuration(hours) {
+    const totalMin = Math.round(hours * 60);
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    return h > 0 ? `${h}h ${m.toString().padStart(2,'0')}m` : `${m}m`;
+  }
+
+  function setStatus(msg, isError) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (isError ? ' error' : '');
+  }
+
+  async function load(sport) {
+    current = sport;
+    ['all', 'running', 'cycling'].forEach(s => {
+      document.getElementById('btn-' + s).classList.toggle('active', s === sport);
+    });
+
+    try {
+      const res = await fetch('/api/weeks?sport=' + sport);
+      const data = await res.json();
+      const tbody = document.getElementById('rows');
+
+      if (!data.length) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty">No activities found for this filter.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = data.map(r =>
+        `<tr>
+          <td>${r.week}</td>
+          <td>${r.km.toFixed(1)} km</td>
+          <td>${fmtDuration(r.hours)}</td>
+        </tr>`
+      ).join('');
+    } catch (e) {
+      setStatus('Failed to load data: ' + e.message, true);
+    }
+  }
+
+  async function sync() {
+    const btn = document.getElementById('syncBtn');
+    btn.disabled = true;
+    setStatus('Syncing…');
+
+    try {
+      const res = await fetch('/api/sync');
+      const data = await res.json();
+
+      if (data.error) {
+        const isAuth = data.error.includes('oauth/start');
+        setStatus(data.error + (isAuth ? ' — open /oauth/start to authorize' : ''), true);
+      } else {
+        setStatus(`Synced ${data.synced} new activit${data.synced === 1 ? 'y' : 'ies'}.`);
+        await load(current);
+      }
+    } catch (e) {
+      setStatus('Sync failed: ' + e.message, true);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  load('all');
+</script>
+</body>
+</html>
