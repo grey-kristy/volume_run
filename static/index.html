@@ -126,6 +126,31 @@
     }
     .status.error { color: #dc2626; }
 
+    .summary {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 16px 24px;
+      display: flex;
+      gap: 32px;
+    }
+
+    .stat-val {
+      display: block;
+      font-size: 1.5rem;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.02em;
+    }
+
+    .stat-label {
+      display: block;
+      font-size: 0.72rem;
+      color: #9ca3af;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
     .empty {
       padding: 48px 0;
       text-align: center;
@@ -155,6 +180,17 @@
   </div>
 </div>
 
+<div class="summary">
+  <div>
+    <span class="stat-val" id="totalVal">—</span>
+    <span class="stat-label" id="totalLabel">total</span>
+  </div>
+  <div>
+    <span class="stat-val" id="totalWeeks">—</span>
+    <span class="stat-label">active weeks</span>
+  </div>
+</div>
+
 <div class="list" id="rows"></div>
 <div class="status" id="status"></div>
 
@@ -177,10 +213,12 @@
     return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
   }
 
+  function fmtKm(km) {
+    return (km > 100 ? Math.round(km) : km.toFixed(1)) + ' km';
+  }
+
   function fmtValue(row) {
-    if (currentMetric === 'km') {
-      return row.km.toFixed(1) + ' km';
-    }
+    if (currentMetric === 'km') return fmtKm(row.km);
     const totalMin = Math.round(row.hours * 60);
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
@@ -204,9 +242,24 @@
     render();
   }
 
+  function fmtTotal(data) {
+    if (currentMetric === 'km') {
+      return fmtKm(data.reduce((s, r) => s + r.km, 0));
+    }
+    const totalHours = data.reduce((s, r) => s + r.hours, 0);
+    const h = Math.floor(totalHours);
+    const m = Math.round((totalHours - h) * 60);
+    return `${h}:${String(m).padStart(2, '0')}`;
+  }
+
   function render() {
     const data = allData.filter(r => r.week.startsWith(currentYear + '-'));
     const container = document.getElementById('rows');
+
+    document.getElementById('totalVal').textContent   = data.length ? fmtTotal(data) : '—';
+    document.getElementById('totalLabel').textContent = currentMetric === 'km' ? 'total distance' : 'total time';
+    document.getElementById('totalWeeks').textContent = data.length ? data.length : '—';
+
     if (!allData.length) {
       container.innerHTML = '<div class="empty">No activities — click Sync to load.</div>';
       return;
