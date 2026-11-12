@@ -55,6 +55,7 @@ func (t *bearerToken) valid() bool {
 // apiActivity matches one element of the activities search response array.
 type apiActivity struct {
 	ActivityID     int64   `json:"activityId"`
+	ActivityName   string  `json:"activityName"`
 	StartTimeLocal string  `json:"startTimeLocal"` // "2006-01-02 15:04:05"
 	ActivityType   struct {
 		TypeKey string `json:"typeKey"` // e.g. "running", "road_biking"
@@ -195,7 +196,9 @@ func convertActivity(a apiActivity, t time.Time) model.Activity {
 	year, week := t.ISOWeek()
 	return model.Activity{
 		ID:         strconv.FormatInt(a.ActivityID, 10),
+		Name:       a.ActivityName,
 		Sport:      normaliseSport(a.ActivityType.TypeKey),
+		TypeKey:    a.ActivityType.TypeKey,
 		StartedAt:  t,
 		Week:       fmt.Sprintf("%04d-W%02d", year, week),
 		DistanceKm: a.Distance / 1000,

@@ -37,6 +37,7 @@ func main() {
 	mux.Handle("/", http.FileServer(http.Dir("static")))
 	mux.HandleFunc("/api/weeks", handlers.Weeks(st))
 	mux.HandleFunc("/api/sync", handlers.Sync(st, gc))
+	mux.HandleFunc("/api/activities", handlers.Activities(st))
 
 	log.Printf("listening on %s", *addr)
 	if err := http.ListenAndServe(*addr, mux); err != nil {

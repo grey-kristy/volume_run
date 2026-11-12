@@ -76,14 +76,60 @@
       gap: 2px;
     }
 
+    .week-block { border-bottom: 1px solid #f0f0f0; }
+    .week-block:last-child { border-bottom: none; }
+
     .row {
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 7px 0;
-      border-bottom: 1px solid #f0f0f0;
+      cursor: pointer;
     }
-    .row:last-child { border-bottom: none; }
+    .row:hover .week { color: #2563eb; }
+
+    .toggle {
+      flex-shrink: 0;
+      width: 12px;
+      font-size: 0.7rem;
+      color: #9ca3af;
+      display: inline-block;
+      transition: transform 0.18s;
+      user-select: none;
+    }
+    .toggle.open { transform: rotate(90deg); }
+
+    .detail {
+      display: none;
+      background: #fafafa;
+      padding: 0 0 10px 24px;
+    }
+
+    .detail-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    .detail-table th {
+      text-align: left;
+      padding: 5px 10px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: #9ca3af;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .detail-table td {
+      padding: 6px 10px;
+      color: #374151;
+      border-bottom: 1px solid #f3f4f6;
+    }
+    .detail-table tr:last-child td { border-bottom: none; }
+    .detail-table tbody tr:hover td { background: #f0f4ff; }
+    .detail-table th:last-child,
+    .detail-table td:last-child { text-align: right; }
+    .detail-loading { padding: 10px; font-size: 0.8rem; color: #9ca3af; }
 
     .week {
       width: 100px;
@@ -199,6 +245,7 @@
   let currentFilter = 'all';
   let currentMetric = 'km';
   let currentYear = String(new Date().getFullYear());
+  let expandedWeek = null;
 
   // Convert ISO week string "2026-W45" to its Monday date.
   function isoWeekMonday(isoWeek) {
@@ -252,9 +299,93 @@
     return `${h}:${String(m).padStart(2, '0')}`;
   }
 
+  const sportNames = {
+    running:                        'Running',
+    cycling:                        'Cycling',
+    kiteboarding_v2:                'Kiting',
+    lap_swimming:                   'Swimming',
+    walking:                        'Walking',
+    resort_snowboarding:            'Snowboarding',
+    resort_skiing_snowboarding_ws:  'Skiing',
+    wind_kite_surfing:              'Kiting',
+    hiking:                         'Hiking',
+    sailing_v2:                     'Sailing',
+    trail_running:                  'Running',
+  };
+
+  function prettifySport(typeKey) {
+    if (!typeKey) return '—';
+    return sportNames[typeKey]
+      ?? typeKey.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  }
+
+  function fmtActivityDate(startedAt) {
+    return new Date(startedAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit' });
+  }
+
+  function fmtDuration(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.round((seconds % 3600) / 60);
+    return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+  }
+
+  function fmtDetailDuration(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.round((seconds % 3600) / 60);
+    return `${h}:${String(m).padStart(2, '0')}`;
+  }
+
+  function fmtPace(durationS, km) {
+    if (km <= 0) return '—';
+    const paceMin = (durationS / 60) / km;
+    const m = Math.floor(paceMin);
+    const s = Math.round((paceMin - m) * 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  }
+
+  async function toggleDetail(isoWeek) {
+    const detail = document.getElementById('detail-' + isoWeek);
+    const toggle = document.getElementById('toggle-' + isoWeek);
+
+    if (expandedWeek === isoWeek) {
+      detail.style.display = 'none';
+      toggle.classList.remove('open');
+      expandedWeek = null;
+      return;
+    }
+    if (expandedWeek) {
+      document.getElementById('detail-' + expandedWeek).style.display = 'none';
+      document.getElementById('toggle-' + expandedWeek).classList.remove('open');
+    }
+    expandedWeek = isoWeek;
+    toggle.classList.add('open');
+    detail.style.display = 'block';
+    detail.innerHTML = '<div class="detail-loading">Loading…</div>';
+
+    const res = await fetch(`/api/activities?week=${isoWeek}&sport=${currentFilter}`);
+    const acts = await res.json();
+
+    if (!acts.length) {
+      detail.innerHTML = '<div class="detail-loading">No activities.</div>';
+      return;
+    }
+    detail.innerHTML = `<table class="detail-table">
+      <thead><tr><th>Date</th><th>Sport</th><th>Name</th><th>Duration</th><th>Distance</th><th>Pace</th></tr></thead>
+      <tbody>${acts.map(a => `<tr>
+        <td>${fmtActivityDate(a.started_at)}</td>
+        <td>${prettifySport(a.type_key)}</td>
+        <td>${a.name || '—'}</td>
+        <td>${fmtDetailDuration(a.duration_s)}</td>
+        <td>${a.km.toFixed(1)} km</td>
+        <td>${fmtPace(a.duration_s, a.km)}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+  }
+
   function render() {
     const data = allData.filter(r => r.week.startsWith(currentYear + '-'));
     const container = document.getElementById('rows');
+    expandedWeek = null;
 
     document.getElementById('totalVal').textContent   = data.length ? fmtTotal(data) : '—';
     document.getElementById('totalLabel').textContent = currentMetric === 'km' ? 'total distance' : 'total time';
@@ -271,10 +402,14 @@
     const max = Math.max(...data.map(getValue));
     container.innerHTML = data.map(row => {
       const pct = max > 0 ? (getValue(row) / max * 100).toFixed(1) : 0;
-      return `<div class="row">
-        <span class="week">${fmtWeek(row.week)}</span>
-        <span class="val">${fmtValue(row)}</span>
-        <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+      return `<div class="week-block">
+        <div class="row" onclick="toggleDetail('${row.week}')">
+          <span class="toggle" id="toggle-${row.week}">›</span>
+          <span class="week">${fmtWeek(row.week)}</span>
+          <span class="val">${fmtValue(row)}</span>
+          <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+        </div>
+        <div class="detail" id="detail-${row.week}"></div>
       </div>`;
     }).join('');
   }
