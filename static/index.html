@@ -11,176 +11,247 @@
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       background: #f5f5f5;
       color: #1a1a1a;
-      min-height: 100vh;
     }
 
     header {
       background: #fff;
       border-bottom: 1px solid #e0e0e0;
-      padding: 16px 24px;
+      padding: 14px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    h1 { font-size: 1.1rem; font-weight: 600; }
+    h1 { font-size: 1rem; font-weight: 600; letter-spacing: -0.01em; }
+
+    .year-bar {
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
+      padding: 10px 24px;
+      display: flex;
+      gap: 6px;
+      min-height: 44px;
+    }
 
     .sync-btn {
       background: #2563eb;
       color: #fff;
       border: none;
       border-radius: 6px;
-      padding: 7px 16px;
-      font-size: 0.875rem;
+      padding: 6px 14px;
+      font-size: 0.8rem;
       cursor: pointer;
-      transition: background 0.15s;
     }
     .sync-btn:hover { background: #1d4ed8; }
     .sync-btn:disabled { background: #93c5fd; cursor: not-allowed; }
 
-    .filters {
+    .controls {
       display: flex;
-      gap: 8px;
-      padding: 20px 24px 0;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 24px;
+      background: #fff;
+      border-bottom: 1px solid #e0e0e0;
     }
 
-    .filter-btn {
+    .btn-group { display: flex; gap: 6px; }
+
+    .pill {
       border: 1.5px solid #d1d5db;
-      background: #fff;
+      background: transparent;
       border-radius: 20px;
-      padding: 6px 18px;
-      font-size: 0.875rem;
+      padding: 5px 14px;
+      font-size: 0.8rem;
       cursor: pointer;
-      transition: all 0.15s;
-      color: #374151;
-    }
-    .filter-btn:hover { border-color: #2563eb; color: #2563eb; }
-    .filter-btn.active {
-      background: #2563eb;
-      border-color: #2563eb;
-      color: #fff;
-    }
-
-    .container { padding: 20px 24px; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background: #fff;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.08);
-    }
-
-    th {
-      text-align: left;
-      padding: 12px 16px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
       color: #6b7280;
-      background: #f9fafb;
-      border-bottom: 1px solid #e5e7eb;
+      transition: all 0.12s;
     }
+    .pill:hover { border-color: #2563eb; color: #2563eb; }
+    .pill.active { background: #2563eb; border-color: #2563eb; color: #fff; }
 
-    td {
-      padding: 12px 16px;
-      font-size: 0.9rem;
-      border-bottom: 1px solid #f3f4f6;
-    }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #f9fafb; }
-
-    td:nth-child(2), td:nth-child(3) { font-variant-numeric: tabular-nums; }
-
-    .status {
+    .list {
       padding: 12px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 7px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .row:last-child { border-bottom: none; }
+
+    .week {
+      width: 100px;
+      flex-shrink: 0;
       font-size: 0.8rem;
       color: #6b7280;
-      min-height: 36px;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .val {
+      width: 82px;
+      flex-shrink: 0;
+      text-align: right;
+      font-size: 0.875rem;
+      font-weight: 500;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .bar-wrap {
+      flex: 1;
+      height: 14px;
+      background: #e9ecef;
+      border-radius: 7px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      background: #16a34a;
+      border-radius: 7px;
+      transition: width 0.35s ease;
+    }
+
+    .status {
+      padding: 6px 24px 12px;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      min-height: 28px;
     }
     .status.error { color: #dc2626; }
 
     .empty {
+      padding: 48px 0;
       text-align: center;
-      padding: 48px 16px;
       color: #9ca3af;
-      font-size: 0.9rem;
+      font-size: 0.875rem;
     }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>Training Volume Tracker</h1>
+  <h1>Training Volume</h1>
   <button class="sync-btn" id="syncBtn" onclick="sync()">Sync</button>
 </header>
 
-<div class="filters">
-  <button class="filter-btn active" id="btn-all"     onclick="load('all')">All</button>
-  <button class="filter-btn"        id="btn-running" onclick="load('running')">Running</button>
-  <button class="filter-btn"        id="btn-cycling" onclick="load('cycling')">Biking</button>
+<div class="year-bar" id="yearBar"></div>
+
+<div class="controls">
+  <div class="btn-group">
+    <button class="pill active" id="btn-all"     onclick="setFilter('all')">All</button>
+    <button class="pill"        id="btn-running" onclick="setFilter('running')">Running</button>
+    <button class="pill"        id="btn-cycling" onclick="setFilter('cycling')">Biking</button>
+  </div>
+  <div class="btn-group">
+    <button class="pill active" id="metric-km"    onclick="setMetric('km')">Distance</button>
+    <button class="pill"        id="metric-hours" onclick="setMetric('hours')">Time</button>
+  </div>
 </div>
 
+<div class="list" id="rows"></div>
 <div class="status" id="status"></div>
 
-<div class="container">
-  <table>
-    <thead>
-      <tr>
-        <th>Week</th>
-        <th>Distance</th>
-        <th>Duration</th>
-      </tr>
-    </thead>
-    <tbody id="rows">
-      <tr><td colspan="3" class="empty">No data — click Sync to load activities.</td></tr>
-    </tbody>
-  </table>
-</div>
-
 <script>
-  let current = 'all';
+  let allData = [];
+  let currentFilter = 'all';
+  let currentMetric = 'km';
+  let currentYear = String(new Date().getFullYear());
 
-  function fmtDuration(hours) {
-    const totalMin = Math.round(hours * 60);
+  // Convert ISO week string "2026-W45" to its Monday date.
+  function isoWeekMonday(isoWeek) {
+    const [year, week] = isoWeek.split('-W').map(Number);
+    const d = new Date(year, 0, 4); // Jan 4 is always in week 1
+    d.setDate(d.getDate() - (d.getDay() || 7) + 1 + (week - 1) * 7);
+    return d;
+  }
+
+  function fmtWeek(isoWeek) {
+    const d = isoWeekMonday(isoWeek);
+    return d.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+  }
+
+  function fmtValue(row) {
+    if (currentMetric === 'km') {
+      return row.km.toFixed(1) + ' km';
+    }
+    const totalMin = Math.round(row.hours * 60);
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
-    return h > 0 ? `${h}h ${m.toString().padStart(2,'0')}m` : `${m}m`;
+    return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
   }
 
-  function setStatus(msg, isError) {
-    const el = document.getElementById('status');
-    el.textContent = msg;
-    el.className = 'status' + (isError ? ' error' : '');
+  function getValue(row) {
+    return currentMetric === 'km' ? row.km : row.hours;
   }
 
-  async function load(sport) {
-    current = sport;
-    ['all', 'running', 'cycling'].forEach(s => {
-      document.getElementById('btn-' + s).classList.toggle('active', s === sport);
-    });
+  function buildYearButtons(years) {
+    document.getElementById('yearBar').innerHTML = years.map(y =>
+      `<button class="pill ${y === currentYear ? 'active' : ''}" onclick="setYear('${y}')">${y}</button>`
+    ).join('');
+  }
 
+  function setYear(y) {
+    currentYear = y;
+    document.querySelectorAll('#yearBar .pill').forEach(btn =>
+      btn.classList.toggle('active', btn.textContent === y));
+    render();
+  }
+
+  function render() {
+    const data = allData.filter(r => r.week.startsWith(currentYear + '-'));
+    const container = document.getElementById('rows');
+    if (!allData.length) {
+      container.innerHTML = '<div class="empty">No activities — click Sync to load.</div>';
+      return;
+    }
+    if (!data.length) {
+      container.innerHTML = '<div class="empty">No activities for ' + currentYear + '.</div>';
+      return;
+    }
+    const max = Math.max(...data.map(getValue));
+    container.innerHTML = data.map(row => {
+      const pct = max > 0 ? (getValue(row) / max * 100).toFixed(1) : 0;
+      return `<div class="row">
+        <span class="week">${fmtWeek(row.week)}</span>
+        <span class="val">${fmtValue(row)}</span>
+        <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join('');
+  }
+
+  function setFilter(f) {
+    currentFilter = f;
+    ['all', 'running', 'cycling'].forEach(s =>
+      document.getElementById('btn-' + s).classList.toggle('active', s === f));
+    fetchData();
+  }
+
+  function setMetric(m) {
+    currentMetric = m;
+    ['km', 'hours'].forEach(s =>
+      document.getElementById('metric-' + s).classList.toggle('active', s === m));
+    render();
+  }
+
+  async function fetchData() {
     try {
-      const res = await fetch('/api/weeks?sport=' + sport);
-      const data = await res.json();
-      const tbody = document.getElementById('rows');
+      const res = await fetch('/api/weeks?sport=' + currentFilter);
+      allData = await res.json();
 
-      if (!data.length) {
-        tbody.innerHTML = '<tr><td colspan="3" class="empty">No activities found for this filter.</td></tr>';
-        return;
-      }
+      const years = [...new Set(allData.map(r => r.week.split('-W')[0]))].sort().reverse();
+      if (years.length && !years.includes(currentYear)) currentYear = years[0];
+      buildYearButtons(years);
 
-      tbody.innerHTML = data.map(r =>
-        `<tr>
-          <td>${r.week}</td>
-          <td>${r.km.toFixed(1)} km</td>
-          <td>${fmtDuration(r.hours)}</td>
-        </tr>`
-      ).join('');
+      render();
     } catch (e) {
-      setStatus('Failed to load data: ' + e.message, true);
+      setStatus('Failed to load: ' + e.message, true);
     }
   }
 
@@ -188,17 +259,14 @@
     const btn = document.getElementById('syncBtn');
     btn.disabled = true;
     setStatus('Syncing…');
-
     try {
       const res = await fetch('/api/sync');
-      const data = await res.json();
-
-      if (data.error) {
-        const isAuth = data.error.includes('oauth/start');
-        setStatus(data.error + (isAuth ? ' — open /oauth/start to authorize' : ''), true);
+      const d = await res.json();
+      if (d.error) {
+        setStatus(d.error, true);
       } else {
-        setStatus(`Synced ${data.synced} new activit${data.synced === 1 ? 'y' : 'ies'}.`);
-        await load(current);
+        setStatus(`Synced ${d.synced} new activit${d.synced === 1 ? 'y' : 'ies'}.`);
+        await fetchData();
       }
     } catch (e) {
       setStatus('Sync failed: ' + e.message, true);
@@ -207,7 +275,13 @@
     }
   }
 
-  load('all');
+  function setStatus(msg, err) {
+    const el = document.getElementById('status');
+    el.textContent = msg;
+    el.className = 'status' + (err ? ' error' : '');
+  }
+
+  fetchData();
 </script>
 </body>
 </html>
