@@ -5,7 +5,8 @@
       "mcp__claude_ai_Claude_Docs__update",
       "mcp__claude_ai_Claude_Docs__read",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(go build *)"
     ]
   }
 }
