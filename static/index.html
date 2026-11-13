@@ -197,6 +197,51 @@
       letter-spacing: 0.04em;
     }
 
+    .overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.45);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .overlay.visible { display: flex; }
+
+    .modal {
+      background: #fff;
+      border-radius: 10px;
+      padding: 32px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    }
+    .modal h2  { font-size: 1rem; font-weight: 600; margin-bottom: 6px; }
+    .modal p   { font-size: 0.8rem; color: #6b7280; margin-bottom: 20px; }
+    .modal a   { color: #2563eb; text-decoration: none; }
+    .modal a:hover { text-decoration: underline; }
+
+    .modal input[type=text] {
+      width: 100%;
+      border: 1.5px solid #d1d5db;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 0.875rem;
+      outline: none;
+      font-family: monospace;
+      margin-bottom: 16px;
+    }
+    .modal input[type=text]:focus { border-color: #2563eb; }
+
+    .modal-footer { display: flex; justify-content: flex-end; }
+
+    .modal-err {
+      font-size: 0.75rem;
+      color: #dc2626;
+      margin-bottom: 10px;
+      min-height: 1em;
+    }
+
     .empty {
       padding: 48px 0;
       text-align: center;
@@ -206,6 +251,18 @@
   </style>
 </head>
 <body>
+
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <h2>Garmin Personal API Key</h2>
+    <p>Enter your API key from <a href="https://connect.garmin.com/app/settings/personalApiToken" target="_blank">Garmin Connect</a>.<br>It will be kept in memory for this session.</p>
+    <input type="text" id="keyInput" placeholder="Paste your API key here" autocomplete="off" spellcheck="false">
+    <div class="modal-err" id="keyErr"></div>
+    <div class="modal-footer">
+      <button class="sync-btn" onclick="saveKey()">Save</button>
+    </div>
+  </div>
+</div>
 
 <header>
   <h1>Training Volume</h1>
@@ -241,6 +298,36 @@
 <div class="status" id="status"></div>
 
 <script>
+  async function checkKey() {
+    const res = await fetch('/api/status');
+    const { key_set } = await res.json();
+    if (!key_set) {
+      document.getElementById('overlay').classList.add('visible');
+      document.getElementById('keyInput').focus();
+    }
+  }
+
+  async function saveKey() {
+    const key = document.getElementById('keyInput').value.trim();
+    if (!key) { document.getElementById('keyErr').textContent = 'Please enter a key.'; return; }
+    document.getElementById('keyErr').textContent = '';
+    const res = await fetch('/api/key', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key }),
+    });
+    if (!res.ok) {
+      document.getElementById('keyErr').textContent = 'Failed to save key.';
+      return;
+    }
+    document.getElementById('overlay').classList.remove('visible');
+    document.getElementById('keyInput').value = '';
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('overlay').classList.contains('visible')) saveKey();
+  });
+
   let allData = [];
   let currentFilter = 'all';
   let currentMetric = 'km';
@@ -469,6 +556,7 @@
     el.className = 'status' + (err ? ' error' : '');
   }
 
+  checkKey();
   fetchData();
 </script>
 </body>

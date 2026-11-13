@@ -1,14 +1,15 @@
 // Package garmin implements a client for the Garmin Connect Personal API.
 //
 // Authentication uses a static API key to obtain a short-lived bearer token.
-// Set GARMIN_PERSONAL_API_KEY in the environment (or pass it via --api-key).
+// Set GARMIN_PERSONAL_API_KEY in the environment before starting the server.
+// The bearer token is kept in memory only; a new one is fetched automatically
+// when the process starts or when the token is about to expire.
 //
 // API reference: https://github.com/garmin/connect-personal-api-python
 // Base URL: https://personal.connectapi.garmin.com
 package garmin
 
 import (
-	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -29,27 +30,22 @@ const (
 	tokenPath      = "/personalapitoken-service/personal-api/personal-api-key/token"
 	activitiesPath = "/activitylist-service/activities/search/activities"
 	pageSize       = 100
-	tokenMinTTL    = time.Hour // reuse cached token if more than 1h remains
+	tokenMinTTL    = time.Hour // refresh token if less than 1h remains
 )
 
-// Client holds the API key and a cached bearer token.
+// Client holds the API key and an in-memory bearer token.
 type Client struct {
-	apiKey    string
-	tokenFile string
-	token     *bearerToken
+	apiKey string
+	token  *bearerToken
 }
 
 type bearerToken struct {
-	Fingerprint string  `json:"fingerprint"`
-	AccessToken string  `json:"access_token"`
-	ExpiresAt   float64 `json:"expires_at"` // Unix epoch seconds
+	AccessToken string
+	ExpiresAt   time.Time
 }
 
 func (t *bearerToken) valid() bool {
-	if t == nil || t.AccessToken == "" {
-		return false
-	}
-	return time.Until(time.Unix(int64(t.ExpiresAt), 0)) > tokenMinTTL
+	return t != nil && t.AccessToken != "" && time.Until(t.ExpiresAt) > tokenMinTTL
 }
 
 // apiActivity matches one element of the activities search response array.
@@ -64,18 +60,19 @@ type apiActivity struct {
 	Duration float64 `json:"duration"` // seconds
 }
 
-// NewClient creates a client using GARMIN_PERSONAL_API_KEY from the environment.
-// tokenFile is a local path used to cache the bearer token between restarts.
-func NewClient(tokenFile string) (*Client, error) {
-	apiKey := os.Getenv("GARMIN_PERSONAL_API_KEY")
-	if apiKey == "" {
-		return nil, fmt.Errorf("GARMIN_PERSONAL_API_KEY must be set")
-	}
-	c := &Client{apiKey: apiKey, tokenFile: tokenFile}
-	if err := c.loadToken(); err != nil {
-		log.Printf("garmin: no cached token (%v), will fetch on first sync", err)
-	}
-	return c, nil
+// NewClient creates a client. It reads GARMIN_PERSONAL_API_KEY from the environment
+// if set; otherwise the key must be supplied later via SetKey.
+func NewClient() *Client {
+	return &Client{apiKey: os.Getenv("GARMIN_PERSONAL_API_KEY")}
+}
+
+// HasKey reports whether an API key has been configured.
+func (c *Client) HasKey() bool { return c.apiKey != "" }
+
+// SetKey sets a new API key and clears any cached bearer token.
+func (c *Client) SetKey(key string) {
+	c.apiKey = key
+	c.token = nil
 }
 
 // ListActivities returns all activities that started strictly after `after`.
@@ -104,8 +101,6 @@ func (c *Client) ListActivities(after time.Time) ([]model.Activity, error) {
 	return all, nil
 }
 
-// fetchPage fetches one page of activities. done is true when the page was
-// short (last page) or when we encountered activities older than `after`.
 func (c *Client) fetchPage(start int, after time.Time) ([]model.Activity, bool, error) {
 	params := url.Values{
 		"start": {strconv.Itoa(start)},
@@ -154,10 +149,12 @@ func (c *Client) fetchPage(start int, after time.Time) ([]model.Activity, bool, 
 	return activities, done, nil
 }
 
-// ensureToken fetches a fresh bearer token if the cached one is missing or expiring soon.
+// ensureToken fetches a fresh bearer token when the in-memory one is missing or expiring.
 func (c *Client) ensureToken() error {
-	fp := fingerprint(c.apiKey)
-	if c.token != nil && c.token.Fingerprint == fp && c.token.valid() {
+	if c.apiKey == "" {
+		return fmt.Errorf("no API key configured")
+	}
+	if c.token.valid() {
 		return nil
 	}
 
@@ -184,12 +181,8 @@ func (c *Client) ensureToken() error {
 		return fmt.Errorf("parse JWT expiry: %w", err)
 	}
 
-	c.token = &bearerToken{
-		Fingerprint: fp,
-		AccessToken: accessToken,
-		ExpiresAt:   float64(expiry.Unix()),
-	}
-	return c.saveToken()
+	c.token = &bearerToken{AccessToken: accessToken, ExpiresAt: expiry}
+	return nil
 }
 
 func convertActivity(a apiActivity, t time.Time) model.Activity {
@@ -217,12 +210,6 @@ func normaliseSport(typeKey string) string {
 	}
 }
 
-// fingerprint is a SHA-256 hash of the API key, used to detect key rotation in the cache.
-func fingerprint(apiKey string) string {
-	h := sha256.Sum256([]byte(baseURL + apiKey))
-	return fmt.Sprintf("%x", h)
-}
-
 // jwtExpiry decodes the JWT payload (without verifying the signature) and returns exp.
 func jwtExpiry(token string) (time.Time, error) {
 	parts := strings.Split(token, ".")
@@ -243,25 +230,4 @@ func jwtExpiry(token string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("no exp claim in token")
 	}
 	return time.Unix(claims.Exp, 0), nil
-}
-
-func (c *Client) loadToken() error {
-	data, err := os.ReadFile(c.tokenFile)
-	if err != nil {
-		return err
-	}
-	var t bearerToken
-	if err := json.Unmarshal(data, &t); err != nil {
-		return err
-	}
-	c.token = &t
-	return nil
-}
-
-func (c *Client) saveToken() error {
-	data, err := json.MarshalIndent(c.token, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(c.tokenFile, data, 0600)
 }

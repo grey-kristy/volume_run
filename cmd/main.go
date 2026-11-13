@@ -13,9 +13,8 @@ import (
 )
 
 func main() {
-	addr      := flag.String("addr", ":8080", "listen address")
-	dbPath    := flag.String("db", "./db/garmin.db", "SQLite database path")
-	tokenFile := flag.String("token-file", "./db/garmin_token.json", "bearer token cache path")
+	addr   := flag.String("addr", ":8080", "listen address")
+	dbPath := flag.String("db", "./db/garmin.db", "SQLite database path")
 	flag.Parse()
 
 	if err := os.MkdirAll(filepath.Dir(*dbPath), 0755); err != nil {
@@ -28,13 +27,12 @@ func main() {
 	}
 	defer st.Close()
 
-	gc, err := garmin.NewClient(*tokenFile)
-	if err != nil {
-		log.Fatalf("garmin client: %v", err)
-	}
+	gc := garmin.NewClient()
 
 	mux := http.NewServeMux()
 	mux.Handle("/", http.FileServer(http.Dir("static")))
+	mux.HandleFunc("/api/status", handlers.Status(gc))
+	mux.HandleFunc("/api/key", handlers.SetKey(gc))
 	mux.HandleFunc("/api/weeks", handlers.Weeks(st))
 	mux.HandleFunc("/api/sync", handlers.Sync(st, gc))
 	mux.HandleFunc("/api/activities", handlers.Activities(st))
