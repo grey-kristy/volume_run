@@ -56,8 +56,10 @@ type apiActivity struct {
 	ActivityType   struct {
 		TypeKey string `json:"typeKey"` // e.g. "running", "road_biking"
 	} `json:"activityType"`
-	Distance float64 `json:"distance"` // metres
-	Duration float64 `json:"duration"` // seconds
+	Distance  float64 `json:"distance"`  // metres
+	Duration  float64 `json:"duration"`  // seconds
+	AverageHR float64 `json:"averageHR"` // bpm
+	MaxHR     float64 `json:"maxHR"`     // bpm
 }
 
 // NewClient creates a client. It reads GARMIN_PERSONAL_API_KEY from the environment
@@ -196,6 +198,8 @@ func convertActivity(a apiActivity, t time.Time) model.Activity {
 		Week:       fmt.Sprintf("%04d-W%02d", year, week),
 		DistanceKm: a.Distance / 1000,
 		DurationS:  int(a.Duration),
+		AverageHR:  int(a.AverageHR),
+		MaxHR:      int(a.MaxHR),
 	}
 }
 

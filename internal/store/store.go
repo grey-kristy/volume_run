@@ -27,6 +27,8 @@ type ActivityRow struct {
 	StartedAt  string  `json:"started_at"` // RFC3339 UTC
 	DistanceKm float64 `json:"km"`
 	DurationS  int     `json:"duration_s"`
+	AverageHR  int     `json:"avg_hr"`
+	MaxHR      int     `json:"max_hr"`
 }
 
 func Open(path string) (*Store, error) {
@@ -55,7 +57,9 @@ func migrate(db *sql.DB) error {
 			started_at  TEXT NOT NULL,
 			week        TEXT NOT NULL,
 			distance_km REAL NOT NULL,
-			duration_s  INTEGER NOT NULL
+			duration_s  INTEGER NOT NULL,
+			avg_hr      INTEGER NOT NULL DEFAULT 0,
+			max_hr      INTEGER NOT NULL DEFAULT 0
 		);
 		CREATE INDEX IF NOT EXISTS idx_week_sport ON activities(week, sport);
 	`)
@@ -70,8 +74,8 @@ func (s *Store) Upsert(activities []model.Activity) error {
 	defer tx.Rollback()
 
 	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO activities (id, name, sport, type_key, started_at, week, distance_km, duration_s)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT OR REPLACE INTO activities (id, name, sport, type_key, started_at, week, distance_km, duration_s, avg_hr, max_hr)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`)
 	if err != nil {
 		return err
@@ -79,7 +83,7 @@ func (s *Store) Upsert(activities []model.Activity) error {
 	defer stmt.Close()
 
 	for _, a := range activities {
-		_, err := stmt.Exec(a.ID, a.Name, a.Sport, a.TypeKey, a.StartedAt.UTC().Format(time.RFC3339), a.Week, a.DistanceKm, a.DurationS)
+		_, err := stmt.Exec(a.ID, a.Name, a.Sport, a.TypeKey, a.StartedAt.UTC().Format(time.RFC3339), a.Week, a.DistanceKm, a.DurationS, a.AverageHR, a.MaxHR)
 		if err != nil {
 			return fmt.Errorf("upsert %s: %w", a.ID, err)
 		}
@@ -149,14 +153,14 @@ func (s *Store) WeekActivities(week, sport string) ([]ActivityRow, error) {
 	)
 	if sport == "" || sport == "all" {
 		rows, err = s.db.Query(`
-			SELECT id, name, type_key, started_at, distance_km, duration_s
+			SELECT id, name, type_key, started_at, distance_km, duration_s, avg_hr, max_hr
 			FROM   activities
 			WHERE  week = ?
 			ORDER  BY started_at
 		`, week)
 	} else {
 		rows, err = s.db.Query(`
-			SELECT id, name, type_key, started_at, distance_km, duration_s
+			SELECT id, name, type_key, started_at, distance_km, duration_s, avg_hr, max_hr
 			FROM   activities
 			WHERE  week = ? AND sport = ?
 			ORDER  BY started_at
@@ -170,7 +174,7 @@ func (s *Store) WeekActivities(week, sport string) ([]ActivityRow, error) {
 	var result []ActivityRow
 	for rows.Next() {
 		var r ActivityRow
-		if err := rows.Scan(&r.ID, &r.Name, &r.TypeKey, &r.StartedAt, &r.DistanceKm, &r.DurationS); err != nil {
+		if err := rows.Scan(&r.ID, &r.Name, &r.TypeKey, &r.StartedAt, &r.DistanceKm, &r.DurationS, &r.AverageHR, &r.MaxHR); err != nil {
 			return nil, err
 		}
 		result = append(result, r)

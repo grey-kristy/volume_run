@@ -11,4 +11,6 @@ type Activity struct {
 	Week       string    // ISO week label, e.g. "2026-W45"
 	DistanceKm float64
 	DurationS  int
+	AverageHR  int
+	MaxHR      int
 }
