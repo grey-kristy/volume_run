@@ -22,7 +22,7 @@ import (
 	"strings"
 	"time"
 
-	"run_vol/internal/model"
+	"volume_run/internal/model"
 )
 
 const (

@@ -7,7 +7,7 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 
-	"run_vol/internal/model"
+	"volume_run/internal/model"
 )
 
 type Store struct {

@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"run_vol/internal/garmin"
-	"run_vol/internal/handlers"
-	"run_vol/internal/store"
+	"volume_run/internal/garmin"
+	"volume_run/internal/handlers"
+	"volume_run/internal/store"
 )
 
 func main() {

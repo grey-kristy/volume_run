@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 
-	"run_vol/internal/garmin"
-	"run_vol/internal/store"
+	"volume_run/internal/garmin"
+	"volume_run/internal/store"
 )
 
 type syncResponse struct {

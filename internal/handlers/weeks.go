@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"run_vol/internal/store"
+	"volume_run/internal/store"
 )
 
 func Weeks(st *store.Store) http.HandlerFunc {

@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"run_vol/internal/garmin"
+	"volume_run/internal/garmin"
 )
 
 func Status(gc *garmin.Client) http.HandlerFunc {
