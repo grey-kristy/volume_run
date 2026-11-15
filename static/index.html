@@ -480,7 +480,8 @@
 
     document.getElementById('totalVal').textContent   = data.length ? fmtTotal(data) : '—';
     document.getElementById('totalLabel').textContent = currentMetric === 'km' ? 'total distance' : 'total time';
-    document.getElementById('totalWeeks').textContent = data.length ? data.length : '—';
+    const activeWeeks = data.filter(r => r.km > 0 || r.hours > 0).length;
+    document.getElementById('totalWeeks').textContent = activeWeeks ? activeWeeks : '—';
 
     if (!allData.length) {
       container.innerHTML = '<div class="empty">No activities — click Sync to load.</div>';

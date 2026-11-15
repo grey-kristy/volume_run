@@ -142,7 +142,62 @@ func (s *Store) WeeklySummary(sport string) ([]WeekRow, error) {
 		}
 		result = append(result, r)
 	}
-	return result, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return fillEmptyWeeks(result, time.Now()), nil
+}
+
+// fillEmptyWeeks inserts zero rows for weeks without workouts, from the oldest
+// week in rows up to the week containing now. rows must be sorted newest first.
+func fillEmptyWeeks(rows []WeekRow, now time.Time) []WeekRow {
+	if len(rows) == 0 {
+		return rows
+	}
+	byWeek := make(map[string]WeekRow, len(rows))
+	for _, r := range rows {
+		byWeek[r.Week] = r
+	}
+
+	oldest, err := weekStart(rows[len(rows)-1].Week)
+	if err != nil {
+		return rows
+	}
+	newest, err := weekStart(rows[0].Week)
+	if err != nil {
+		return rows
+	}
+	y, w := now.ISOWeek()
+	if cur, err := weekStart(isoWeekLabel(y, w)); err == nil && cur.After(newest) {
+		newest = cur
+	}
+
+	var out []WeekRow
+	for d := newest; !d.Before(oldest); d = d.AddDate(0, 0, -7) {
+		label := isoWeekLabel(d.ISOWeek())
+		if r, ok := byWeek[label]; ok {
+			out = append(out, r)
+		} else {
+			out = append(out, WeekRow{Week: label})
+		}
+	}
+	return out
+}
+
+func isoWeekLabel(year, week int) string {
+	return fmt.Sprintf("%04d-W%02d", year, week)
+}
+
+// weekStart returns the Monday (UTC midnight) of an ISO week label like "2026-W45".
+func weekStart(label string) (time.Time, error) {
+	var year, week int
+	if _, err := fmt.Sscanf(label, "%d-W%d", &year, &week); err != nil {
+		return time.Time{}, fmt.Errorf("bad week label %q: %w", label, err)
+	}
+	// January 4th is always in ISO week 1.
+	jan4 := time.Date(year, time.January, 4, 0, 0, 0, 0, time.UTC)
+	monday := jan4.AddDate(0, 0, -((int(jan4.Weekday()) + 6) % 7))
+	return monday.AddDate(0, 0, (week-1)*7), nil
 }
 
 // WeekActivities returns individual activities for a given ISO week, ordered by start time.
