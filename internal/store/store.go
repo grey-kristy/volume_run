@@ -61,8 +61,7 @@ func migrate(db *sql.DB) error {
 			avg_hr      INTEGER NOT NULL DEFAULT 0,
 			max_hr      INTEGER NOT NULL DEFAULT 0
 		);
-		CREATE INDEX IF NOT EXISTS idx_week_sport ON activities(week, sport);
-	`)
+		CREATE INDEX IF NOT EXISTS idx_week_sport ON activities(week, sport);	`)
 	return err
 }
 
@@ -103,7 +102,7 @@ func (s *Store) MaxStartedAt() (time.Time, error) {
 }
 
 // WeeklySummary returns km and hours grouped by ISO week, newest first.
-// sport must be "all", "running", or "cycling".
+// sport must be "all", "running", "cycling", or "swimming".
 func (s *Store) WeeklySummary(sport string) ([]WeekRow, error) {
 	var (
 		rows *sql.Rows

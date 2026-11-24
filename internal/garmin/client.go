@@ -209,6 +209,8 @@ func normaliseSport(typeKey string) string {
 		return "running"
 	case "cycling", "road_biking", "mountain_biking", "indoor_cycling", "virtual_ride":
 		return "cycling"
+	case "lap_swimming", "open_water_swimming", "swimming":
+		return "swimming"
 	default:
 		return "other"
 	}
